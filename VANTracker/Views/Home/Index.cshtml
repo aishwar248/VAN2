@@ -1,0 +1,18 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 100vh;">
+    <div class="text-center">
+        <h1 class="mb-4">🚐 Welcome to VAN Tracker</h1>
+        <p class="lead mb-5">Track your office vans in real time</p>
+        <div class="d-grid gap-3 col-6 mx-auto">
+            <a asp-action="DriverLogin" asp-controller="Home" class="btn btn-primary btn-lg">
+                Driver Login
+            </a>
+            <a asp-action="CustomerLogin" asp-controller="Home" class="btn btn-success btn-lg">
+                Customer Login
+            </a>
+        </div>
+    </div>
+</div>

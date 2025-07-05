@@ -1,0 +1,193 @@
+﻿<h2>Welcome, Driver</h2>
+<p>Your route: <strong>@Model.RouteNumber</strong></p>
+<p>Click below to start sharing your live location.</p>
+
+<button id="startTracking" class="btn btn-success mb-3">Start Location Sharing</button>
+<button id="stopTracking" class="btn btn-warning mb-3" style="display:none;">Stop Location Sharing</button>
+
+<div id="map" style="height: 400px;"></div>
+
+<!-- Loading Spinner -->
+<div id="loading" style="display:none; text-align:center; margin-top:10px;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="sr-only">Loading...</span>
+    </div>
+    <p id="loadingMessage">Fetching your location...</p>
+</div>
+
+<a href="/Driver/Logout" class="btn btn-danger mt-3">Logout</a>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+
+<style>
+    .direction-marker {
+        width: 30px;
+        height: 30px;
+        background: url('https://cdn-icons-png.flaticon.com/512/684/684908.png') no-repeat center;
+        background-size: contain;
+        transform-origin: center center;
+    }
+</style>
+
+<script>
+    let map, circle, directionMarker, watchId;
+    let currentHeading = 0;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        map = L.map('map').setView([20.5937, 78.9629], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        showLoading();
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function (position) {
+                hideLoading();
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 15);
+            }, function (error) {
+                hideLoading();
+                console.log("Unable to get current location on load.");
+            });
+        } else {
+            hideLoading();
+            alert("Geolocation is not supported by your browser.");
+        }
+
+        document.getElementById('startTracking').addEventListener('click', function () {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+
+            showLoading();
+            navigator.geolocation.getCurrentPosition(function (position) {
+                hideLoading();
+                startLocationTracking();
+                startCompassTracking();
+                document.getElementById('stopTracking').style.display = 'inline-block';
+                document.getElementById('startTracking').style.display = 'none';
+            }, function (error) {
+                hideLoading();
+                handleLocationError(error);
+            });
+        });
+
+        document.getElementById('stopTracking').addEventListener('click', function () {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                sendStopSharing(); // Notify API that sharing is stopped
+                alert("Location sharing stopped.");
+                document.getElementById('stopTracking').style.display = 'none';
+                document.getElementById('startTracking').style.display = 'inline-block';
+            }
+        });
+    });
+
+    function startLocationTracking() {
+        showLoading();
+
+        watchId = navigator.geolocation.watchPosition(position => {
+            hideLoading();
+
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            map.setView([lat, lng], 15);
+
+            if (!circle) {
+                circle = L.circleMarker([lat, lng], {
+                    radius: 10,
+                    color: 'blue',
+                    fillColor: '#0000FF',
+                    fillOpacity: 0.7
+                }).addTo(map);
+            } else {
+                circle.setLatLng([lat, lng]);
+            }
+
+            if (!directionMarker) {
+                directionMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({ className: 'direction-marker' })
+                }).addTo(map);
+            } else {
+                directionMarker.setLatLng([lat, lng]);
+                directionMarker.getElement().style.transform = `rotate(${currentHeading}deg)`;
+            }
+
+            fetch('/api/location/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mobileNumber: '@Model.MobileNumber',
+                    routeNumber: '@Model.RouteNumber',
+                    lat: lat,
+                    lng: lng,
+                    isSharing: true // Driver is sharing
+                })
+            });
+        }, error => {
+            hideLoading();
+            handleLocationError(error);
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000 // Extended timeout
+        });
+    }
+
+    function sendStopSharing() {
+        fetch('/api/location/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mobileNumber: '@Model.MobileNumber',
+                routeNumber: '@Model.RouteNumber',
+                lat: 0,
+                lng: 0,
+                isSharing: false // Driver stopped sharing
+            })
+        });
+    }
+
+    function startCompassTracking() {
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', function (event) {
+                if (event.absolute === true || event.webkitCompassHeading !== undefined) {
+                    currentHeading = event.webkitCompassHeading || event.alpha;
+
+                    if (directionMarker) {
+                        directionMarker.getElement().style.transform = `rotate(${currentHeading}deg)`;
+                    }
+                }
+            }, true);
+        } else {
+            alert("Device does not support compass orientation.");
+        }
+    }
+
+    function showLoading() {
+        document.getElementById('loading').style.display = 'block';
+    }
+
+    function hideLoading() {
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    function handleLocationError(error) {
+        if (error.code === error.PERMISSION_DENIED) {
+            alert("Location permission is denied.\n\nPlease:\n1. Go to your browser's settings.\n2. Find 'Location Permissions'.\n3. Allow location access for this site.");
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+            alert("Location information is unavailable. Please ensure your GPS is turned on and set to High Accuracy.");
+        } else if (error.code === error.TIMEOUT) {
+            alert("The request to get your location timed out. Please try again.");
+        } else {
+            alert("An unknown error occurred. Please try again.");
+        }
+    }
+</script>

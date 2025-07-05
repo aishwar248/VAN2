@@ -1,0 +1,29 @@
+﻿@model VANTracker.DataModels.Models.Driver
+
+@{
+    ViewData["Title"] = "Driver Register";
+}
+
+<h2>Driver Registration</h2>
+
+<form asp-action="Register" method="post">
+    <div class="mb-3">
+        <label>Mobile Number</label>
+        <input asp-for="MobileNumber" class="form-control" />
+        <span asp-validation-for="MobileNumber" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label>Password</label>
+        <input asp-for="Password" type="password" class="form-control" />
+        <span asp-validation-for="Password" class="text-danger"></span>
+    </div>
+
+    @* RouteNumber removed as per updated requirement *@
+
+    <button type="submit" class="btn btn-primary">Register</button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

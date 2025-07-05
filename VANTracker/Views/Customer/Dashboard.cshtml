@@ -1,0 +1,78 @@
+﻿@model VANTracker.DataModels.Models.Customer
+
+@{
+    ViewData["Title"] = "Customer Dashboard";
+    var availableRoutes = ViewBag.AvailableRoutes as List<string>;
+}
+
+<h2>Welcome, Customer</h2>
+
+@if (string.IsNullOrEmpty(Model.RouteNumber))
+{
+    <form method="post" asp-action="SelectRoute">
+        <label>Select a route to track:</label>
+        <select name="routeNumber" class="form-select" required>
+            @foreach (var route in availableRoutes)
+            {
+                <option value="@route">@route</option>
+            }
+        </select>
+        <button type="submit" class="btn btn-primary mt-2">Track</button>
+    </form>
+}
+else
+{
+    <p>Tracking van for route: <strong>@Model.RouteNumber</strong></p>
+    <form method="post" asp-action="ClearRoute">
+        <button class="btn btn-warning mb-3">Change Route</button>
+    </form>
+
+    <div id="map" style="height: 400px;"></div>
+
+    <div id="driverStatus" class="alert alert-info mt-3" style="display:none;"></div>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let map = L.map('map').setView([20.5937, 78.9629], 5);
+            let marker = L.marker([20.5937, 78.9629]).addTo(map);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            let driverStatus = document.getElementById('driverStatus');
+
+            setInterval(() => {
+                fetch('/api/location/@Model.RouteNumber')
+                    .then(res => {
+                        if (!res.ok) throw new Error('Network response was not ok.');
+                        return res.json();
+                    })
+                    .then(data => {
+                        const lat = data.latitude;
+                        const lng = data.longitude;
+
+                        map.setView([lat, lng], 15);
+                        marker.setLatLng([lat, lng]);
+
+                        if (data.isSharing) {
+                            driverStatus.style.display = 'none';
+                        } else {
+                            driverStatus.style.display = 'block';
+                            driverStatus.innerText = 'Driver has stopped sharing the location. Showing last known position.';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching location:', error);
+                        driverStatus.style.display = 'block';
+                        driverStatus.innerText = 'Unable to fetch driver location.';
+                    });
+            }, 5000);
+        });
+    </script>
+}
+
+<a href="/Customer/Logout" class="btn btn-danger mt-3">Logout</a>

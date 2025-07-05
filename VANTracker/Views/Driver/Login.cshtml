@@ -1,0 +1,19 @@
+﻿@{
+    ViewData["Title"] = "Driver Login";
+}
+<h2>Driver Login</h2>
+<form asp-action="Login" method="post">
+    <div class="mb-3">
+        <label>Mobile Number</label>
+        <input name="mobileNumber" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label>Password</label>
+        <input name="password" type="password" class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-success">Login</button>
+    @if (ViewBag.Error != null)
+    {
+        <p class="text-danger">@ViewBag.Error</p>
+    }
+</form>
